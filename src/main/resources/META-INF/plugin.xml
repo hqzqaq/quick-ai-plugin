@@ -1,0 +1,78 @@
+<!-- Plugin Configuration File: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
+<idea-plugin>
+    <!-- Unique identifier of the plugin. It should be FQN, cannot be changed between the plugin versions. -->
+    <id>com.hqz.quick.ai.quick-ai-plugin</id>
+
+    <!-- Public plugin name should be written in Title Case.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
+    <name>Quick AI Plugin</name>
+
+    <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
+    <vendor url="https://github.com/hqzqaq">hqzqaq</vendor>
+
+    <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
+         Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
+    <description><![CDATA[
+        <p>Quick AI Plugin enables you to quickly open files in VS Code, Cursor, Trae, or any VS Code derivative IDE from IntelliJ IDEA.</p>
+        
+        <h2>Features:</h2>
+        <ul>
+            <li>Open current file in external AI IDE with precise cursor position (line and     column)</li>
+            <li>Support for VS Code, Cursor, Trae, and other VS Code-based IDEs</li>
+            <li>Cross-platform support (Windows, macOS, Linux)</li>
+            <li>Configurable IDE path and default IDE selection</li>
+            <li>Customizable keyboard shortcuts</li>
+            <li>Mouse shortcut support (Win+Shift+Alt+Click on Windows/Linux, Cmd+Shift+Alt+Click on macOS)</li>
+        </ul>
+        
+        <h2>Usage:</h2>
+        <ol>
+            <li>Configure your AI IDE executable path in Settings > Tools > Quick AI Plugin</li>
+            <li>Use the keyboard shortcut or mouse shortcut to open the current file in your configured IDE</li>
+            <li>The file will open at the exact cursor position (line:column)</li>
+        </ol>
+    ]]></description>
+
+    <!-- Product and plugin compatibility requirements.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-compatibility.html -->
+    <depends>com.intellij.modules.platform</depends>
+    <!-- Kotlin 依赖设置为可选，因为 Kotlin stdlib 已打包到插件中 -->
+    <!-- config-file 指向仅在 Kotlin 插件安装时加载的配置文件 -->
+    <depends optional="true" config-file="kotlin-optional.xml">org.jetbrains.kotlin</depends>
+
+    <!-- Extensions defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Configurable for plugin settings -->
+        <projectConfigurable
+            parentId="tools"
+            instance="com.hqz.quick.ai.quickaiplugin.ui.PluginConfigurable"
+            id="com.hqz.quick.ai.quickaiplugin.config"
+            displayName="Quick AI Plugin"/>
+        
+        <!-- Post startup activity to register editor mouse listener -->
+        <postStartupActivity implementation="com.hqz.quick.ai.quickaiplugin.listener.MyPluginPostStartupActivity"/>
+        
+        <!-- Notification group -->
+        <notificationGroup id="QuickAiPlugin.Notifications" displayType="BALLOON" isLogByDefault="true"/>
+    </extensions>
+
+    <!-- Actions defined by the plugin.
+         Read more: https://plugins.jetbrains.com/docs/intellij/plugin-actions.html -->
+    <actions>
+        <!-- Action to open file in external IDE -->
+        <action
+            id="QuickAI.OpenInIde"
+            class="com.hqz.quick.ai.quickaiplugin.action.OpenInIdeAction"
+            text="Open in AI IDE"
+            description="Open current file in configured AI IDE"
+            icon="AllIcons.Actions.Menu_open">
+            <keyboard-shortcut
+                keymap="$default"
+                first-keystroke="ctrl shift alt O"
+                second-keystroke="ctrl shift alt O"/>
+            <add-to-group group-id="EditorPopupMenu" anchor="first"/>
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+        </action>
+    </actions>
+</idea-plugin>
