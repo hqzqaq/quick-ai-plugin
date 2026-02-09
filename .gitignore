@@ -44,3 +44,5 @@ bin/
 .idea/
 .run/
 gradle/
+/.idea/
+/.intellijPlatform/

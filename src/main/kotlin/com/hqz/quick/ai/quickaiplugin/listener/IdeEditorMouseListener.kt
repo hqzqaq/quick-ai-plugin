@@ -9,6 +9,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.editor.event.EditorMouseEvent
 import com.intellij.openapi.editor.event.EditorMouseListener
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.WindowManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,6 +39,10 @@ class IdeEditorMouseListener(
 
         val mouseEvent = event.mouseEvent
         if (!isShortcutTriggered(mouseEvent)) return
+
+        if (!isFocusedWindow(project)) {
+            return
+        }
 
         val defaultIdeConfig = settings.state.getDefaultIdeConfig()
         if (defaultIdeConfig == null || defaultIdeConfig.path.isBlank()) {
@@ -88,6 +93,22 @@ class IdeEditorMouseListener(
             isWindowsOrLinux -> isCtrlDown && isShiftDown && isAltDown && isLeftClick
             else -> isMetaDown && isShiftDown && isAltDown && isLeftClick
         }
+    }
+
+    /**
+     * 检查当前项目窗口是否是活跃窗口
+     *
+     * @param project 当前项目
+     * @return 当前窗口是否是活跃窗口
+     *
+     * @see com.intellij.openapi.wm.WindowManager
+     *
+     * Thread Safety Note: 此方法在 EDT 调用
+     */
+    private fun isFocusedWindow(project: Project): Boolean {
+        val windowManager = WindowManager.getInstance()
+        val projectFrame = windowManager.getFrame(project) ?: return false
+        return projectFrame.isActive
     }
 
     /**
