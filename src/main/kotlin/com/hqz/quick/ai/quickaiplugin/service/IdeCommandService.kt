@@ -181,25 +181,77 @@ class IdeCommandService {
      * Thread Safety Note: 此方法是纯函数，可在任意线程调用
      */
     fun validateIdePath(idePath: String): Boolean {
-        // 去除路径中的双引号
+        return validateIdePathWithDetail(idePath).first
+    }
+
+    /**
+     * 验证 IDE 路径是否有效，并返回详细错误信息
+     *
+     * @param idePath IDE 可执行文件路径
+     * @return Pair<是否有效, 详细错误信息>
+     *
+     * Thread Safety Note: 此方法是纯函数，可在任意线程调用
+     */
+    fun validateIdePathWithDetail(idePath: String): Pair<Boolean, String> {
+        val logService = com.hqz.quick.ai.quickaiplugin.util.LogService.getInstance()
+
+        logService.info("[validateIdePath] Starting validation for path: '$idePath'")
+
         val cleanPath = idePath.trim('"')
+        logService.info("[validateIdePath] Cleaned path: '$cleanPath'")
 
-        if (cleanPath.isBlank()) return false
-        val file = File(cleanPath)
-
-        if (!file.exists()) return false
-
-        if (file.isDirectory) {
-            if (cleanPath.endsWith(".app")) {
-                val macExecutablePath = findMacOSExecutable(cleanPath)
-                if (macExecutablePath != null && File(macExecutablePath).canExecute()) {
-                    return true
-                }
-            }
-            return false
+        if (cleanPath.isBlank()) {
+            logService.warn("[validateIdePath] Path is blank after trimming")
+            return Pair(false, "路径为空")
         }
 
-        return file.canExecute()
+        val file = File(cleanPath)
+        logService.info("[validateIdePath] File exists: ${file.exists()}, isDirectory: ${file.isDirectory}, canExecute: ${file.canExecute()}")
+        logService.info("[validateIdePath] Absolute path: ${file.absolutePath}")
+        logService.info("[validateIdePath] Canonical path: ${file.canonicalPath}")
+
+        if (!file.exists()) {
+            val errorMsg = "文件不存在: ${file.absolutePath}"
+            logService.warn("[validateIdePath] $errorMsg")
+            return Pair(false, errorMsg)
+        }
+
+        if (file.isDirectory) {
+            logService.info("[validateIdePath] Path is a directory, checking if it's a .app bundle")
+            if (cleanPath.endsWith(".app")) {
+                logService.info("[validateIdePath] It's a .app bundle, searching for executable")
+                val macExecutablePath = findMacOSExecutable(cleanPath)
+                logService.info("[validateIdePath] Found macOS executable: $macExecutablePath")
+                if (macExecutablePath != null) {
+                    val execFile = File(macExecutablePath)
+                    logService.info("[validateIdePath] Executable exists: ${execFile.exists()}, canExecute: ${execFile.canExecute()}")
+                    if (execFile.canExecute()) {
+                        logService.info("[validateIdePath] .app bundle validation passed")
+                        return Pair(true, "")
+                    } else {
+                        val errorMsg = ".app 包中的可执行文件没有执行权限: $macExecutablePath"
+                        logService.warn("[validateIdePath] $errorMsg")
+                        return Pair(false, errorMsg)
+                    }
+                } else {
+                    val errorMsg = ".app 包中未找到可执行文件，尝试路径: $cleanPath/Contents/Resources/app/bin/code, $cleanPath/Contents/MacOS/Electron"
+                    logService.warn("[validateIdePath] $errorMsg")
+                    return Pair(false, errorMsg)
+                }
+            }
+            val errorMsg = "路径是目录但不是有效的 .app 包: $cleanPath"
+            logService.warn("[validateIdePath] $errorMsg")
+            return Pair(false, errorMsg)
+        }
+
+        if (!file.canExecute()) {
+            val errorMsg = "文件没有执行权限: ${file.absolutePath}"
+            logService.warn("[validateIdePath] $errorMsg")
+            return Pair(false, errorMsg)
+        }
+
+        logService.info("[validateIdePath] Final validation result: true")
+        return Pair(true, "")
     }
 
     /**

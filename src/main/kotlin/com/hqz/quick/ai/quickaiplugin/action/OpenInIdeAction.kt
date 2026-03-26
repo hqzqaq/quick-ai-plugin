@@ -36,7 +36,10 @@ class OpenInIdeAction : AnAction(), DumbAware {
         val logService = LogService.getInstance()
         val i18nService = I18nService.getInstance()
 
+        logService.info("[OpenInIdeAction] Action triggered, project: ${project.name}, basePath: ${project.basePath}")
+
         if (!settings.state.shortcutEnabled) {
+            logService.info("[OpenInIdeAction] Shortcut disabled, shortcutEnabled: ${settings.state.shortcutEnabled}")
             logService.notifyWarning(
                 project,
                 i18nService.message("notification.opening.ide.failed"),
@@ -46,7 +49,11 @@ class OpenInIdeAction : AnAction(), DumbAware {
         }
 
         val defaultIdeConfig = settings.state.getDefaultIdeConfig()
+        logService.info("[OpenInIdeAction] DefaultIdeConfig: $defaultIdeConfig")
+        logService.info("[OpenInIdeAction] All IDE configs: ${settings.state.ideConfigs}")
+        
         if (defaultIdeConfig == null || defaultIdeConfig.path.isBlank()) {
+            logService.warn("[OpenInIdeAction] No default IDE config or path is blank. defaultIdeConfig: $defaultIdeConfig")
             logService.notifyWarning(
                 project,
                 i18nService.message("file.chooser.invalid.path"),
@@ -56,16 +63,49 @@ class OpenInIdeAction : AnAction(), DumbAware {
         }
 
         val ideCommandService = IdeCommandService.getInstance()
+        logService.info("[OpenInIdeAction] Validating IDE path: ${defaultIdeConfig.path}")
 
-        if (!ideCommandService.validateIdePath(defaultIdeConfig.path)) {
+        val (isValid, errorDetail) = ideCommandService.validateIdePathWithDetail(defaultIdeConfig.path)
+        if (!isValid) {
+            logService.warn("[OpenInIdeAction] IDE path validation failed: ${defaultIdeConfig.path}, reason: $errorDetail")
+            val osType = when {
+                System.getProperty("os.name").lowercase().contains("win") -> "Windows"
+                System.getProperty("os.name").lowercase().contains("mac") -> "macOS"
+                else -> "Linux"
+            }
+            val expectedCommand = "<IDE路径> <项目路径> -g <文件路径>:<行号>:<列号>"
+            val errorMessage = buildString {
+                appendLine(i18nService.message("file.chooser.invalid.path") + ": ${defaultIdeConfig.path}")
+                appendLine()
+                appendLine("验证失败原因: $errorDetail")
+                appendLine()
+                appendLine("操作系统: $osType")
+                appendLine("预期命令格式: $expectedCommand")
+                appendLine()
+                appendLine("示例:")
+                when {
+                    System.getProperty("os.name").lowercase().contains("win") -> {
+                        appendLine("  Windows: C:\\Users\\xxx\\AppData\\Local\\Programs\\Cursor\\Cursor.exe")
+                    }
+                    System.getProperty("os.name").lowercase().contains("mac") -> {
+                        appendLine("  macOS: /Applications/Cursor.app")
+                        appendLine("  macOS: /Applications/Cursor.app/Contents/MacOS/Cursor")
+                    }
+                    else -> {
+                        appendLine("  Linux: /usr/bin/code")
+                        appendLine("  Linux: /usr/share/cursor/cursor")
+                    }
+                }
+            }
             logService.notifyError(
                 project,
                 i18nService.message("file.chooser.invalid.path"),
-                i18nService.message("file.chooser.invalid.path") + ": ${defaultIdeConfig.path}"
+                errorMessage
             )
             return
         }
 
+        logService.info("[OpenInIdeAction] IDE path validated successfully, executing open command")
         executeOpenInIde(project, defaultIdeConfig.path)
     }
 

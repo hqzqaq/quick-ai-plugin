@@ -44,8 +44,14 @@ class IdeEditorMouseListener(
             return
         }
 
+        logService.info("[IdeEditorMouseListener] Shortcut triggered, project: ${project.name}")
+        logService.info("[IdeEditorMouseListener] All IDE configs: ${settings.state.ideConfigs}")
+
         val defaultIdeConfig = settings.state.getDefaultIdeConfig()
+        logService.info("[IdeEditorMouseListener] DefaultIdeConfig: $defaultIdeConfig")
+        
         if (defaultIdeConfig == null || defaultIdeConfig.path.isBlank()) {
+            logService.warn("[IdeEditorMouseListener] No default IDE config or path is blank. defaultIdeConfig: $defaultIdeConfig")
             logService.notifyWarning(
                 project,
                 i18nService.message("file.chooser.invalid.path"),
@@ -54,15 +60,49 @@ class IdeEditorMouseListener(
             return
         }
 
-        if (!ideCommandService.validateIdePath(defaultIdeConfig.path)) {
+        logService.info("[IdeEditorMouseListener] Validating IDE path: ${defaultIdeConfig.path}")
+
+        val (isValid, errorDetail) = ideCommandService.validateIdePathWithDetail(defaultIdeConfig.path)
+        if (!isValid) {
+            logService.warn("[IdeEditorMouseListener] IDE path validation failed: ${defaultIdeConfig.path}, reason: $errorDetail")
+            val osType = when {
+                System.getProperty("os.name").lowercase().contains("win") -> "Windows"
+                System.getProperty("os.name").lowercase().contains("mac") -> "macOS"
+                else -> "Linux"
+            }
+            val expectedCommand = "<IDE路径> <项目路径> -g <文件路径>:<行号>:<列号>"
+            val errorMessage = buildString {
+                appendLine(i18nService.message("file.chooser.invalid.path") + ": ${defaultIdeConfig.path}")
+                appendLine()
+                appendLine("验证失败原因: $errorDetail")
+                appendLine()
+                appendLine("操作系统: $osType")
+                appendLine("预期命令格式: $expectedCommand")
+                appendLine()
+                appendLine("示例:")
+                when {
+                    System.getProperty("os.name").lowercase().contains("win") -> {
+                        appendLine("  Windows: C:\\Users\\xxx\\AppData\\Local\\Programs\\Cursor\\Cursor.exe")
+                    }
+                    System.getProperty("os.name").lowercase().contains("mac") -> {
+                        appendLine("  macOS: /Applications/Cursor.app")
+                        appendLine("  macOS: /Applications/Cursor.app/Contents/MacOS/Cursor")
+                    }
+                    else -> {
+                        appendLine("  Linux: /usr/bin/code")
+                        appendLine("  Linux: /usr/share/cursor/cursor")
+                    }
+                }
+            }
             logService.notifyError(
                 project,
                 i18nService.message("file.chooser.invalid.path"),
-                i18nService.message("file.chooser.invalid.path") + ": ${defaultIdeConfig.path}"
+                errorMessage
             )
             return
         }
 
+        logService.info("[IdeEditorMouseListener] IDE path validated successfully, executing open command")
         event.consume()
         executeOpenInIde(defaultIdeConfig.path)
     }
